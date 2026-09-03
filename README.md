@@ -11,7 +11,7 @@ A distributed n8n platform running on OpenShift/Kubernetes using:
 ---
 ## 1. Prerequisites
 
-For design and implement a distributed n8n platform running on Openshift , there are some requirement to deploy n8n service :
+For design and implement a distributed n8n platform running on Openshift , there are some requirement to deploy n8n service : <br>
 A ) an Openshift/kubernetes Cluster <br>
 B ) a Container Registery with Redis,Postgresql,n8n Images <br>
 C ) Persistance Storage for Postgresql and Redis pods <br> 
