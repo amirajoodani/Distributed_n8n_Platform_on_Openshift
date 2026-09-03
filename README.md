@@ -78,9 +78,7 @@ Redis is not deployed as an unused infrastructure component. It is used as the a
 
 ---
 
-## 2. Implemented Architecture
 
-### 2.1 Components
 
 | Component | Replicas | Responsibility |
 |---|---:|---|
@@ -90,7 +88,7 @@ Redis is not deployed as an unused infrastructure component. It is used as the a
 | PostgreSQL | 1 | n8n database and execution metadata |
 | OpenShift Route | 1 | External HTTPS access to n8n Main |
 
-### 2.2 Architecture Diagram
+### 3.2 Architecture Diagram
 
 ```mermaid
 flowchart TD
@@ -113,7 +111,7 @@ flowchart TD
     Worker2 --> PostgreSQL
 ```
 
-### 2.3 Current External URL
+### 3.3 Current External URL
 
 The n8n UI is available at:
 
@@ -125,86 +123,8 @@ The same hostname is used for production webhooks.
 
 ---
 
-## 3. Repository Structure
 
-The expected repository structure is:
-
-```text
-.
-├── README.md
-├── workflow.json
-├── kubernetes/
-│   ├── namespace.yaml
-│   ├── secrets.example.yaml
-│   ├── configmap.yaml
-│   ├── postgres.yaml
-│   ├── redis.yaml
-│   ├── n8n-main.yaml
-│   ├── n8n-worker.yaml
-│   ├── services.yaml
-│   └── route.yaml
-└── docs/
-    ├── architecture.md
-    ├── enterprise-design.md
-    ├── security.md
-    ├── troubleshooting.md
-    ├── observability.md
-    └── disaster-recovery.md
-```
-
-Secret values must not be committed to Git.
-
-Only an example file containing placeholder values should be committed:
-
-```text
-kubernetes/secrets.example.yaml
-```
-
----
-
-## 4. Prerequisites
-
-The following tools are required:
-
-- OpenShift cluster access
-- `oc` CLI
-- Kubernetes permissions to create:
-  - Deployments
-  - Services
-  - Routes
-  - ConfigMaps
-  - Secrets
-  - PersistentVolumeClaims
-- Access to an image registry or the public n8n image
-- A PostgreSQL PersistentVolume
-- A Redis deployment or Redis manifest
-- A configured OpenShift project/namespace
-
-Verify cluster access:
-
-```bash
-oc whoami
-oc cluster-info
-oc get nodes
-```
-
-Set the target project:
-
-```bash
-export NS=<namespace>
-oc project $NS
-```
-
-Example:
-
-```bash
-export NS=n8n
-oc project n8n
-```
-
----
-
-## 5. Deployment
+## 4. Configuration
 
 ### 5.1 Create or Select the OpenShift Project
 
