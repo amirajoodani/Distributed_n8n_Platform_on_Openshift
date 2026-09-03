@@ -12,21 +12,22 @@ A distributed n8n platform running on OpenShift/Kubernetes using:
 ## 1. Prerequisites
 
 For design and implement a distributed n8n platform running on Openshift , there are some requirement to deploy n8n service :
-A ) an Openshift/kubernetes Cluster
-B ) a Container Registery with Redis,Postgresql,n8n Images
-C ) Persistance Storage for Postgresql and Redis pods
+A ) an Openshift/kubernetes Cluster <br>
+B ) a Container Registery with Redis,Postgresql,n8n Images <br>
+C ) Persistance Storage for Postgresql and Redis pods <br> 
 
 ## 2. Deployment steps
 The following steps describe how to deploy the distributed n8n platform on OpenShift.
 
 The deployment consists of:
 
-PostgreSQL
-Redis
-n8n Main
-Two n8n Workers
-OpenShift Route
-The deployment uses n8n Queue Mode, where n8n Main places workflow executions into Redis and the Workers consume and execute those jobs.
+PostgreSQL <br>
+Redis <br>
+n8n Main <br>
+Two n8n Workers <br>
+OpenShift Route <br>
+The deployment uses n8n Queue Mode, where n8n Main places workflow executions into Redis and the Workers consume and execute those jobs. <br>
+
 ## 3. Architecture
 
 The goal of this project is to demonstrate a distributed n8n architecture using Queue Mode.
@@ -1791,59 +1792,3 @@ The current implementation is intentionally simple and suitable for the challeng
 - Capacity planning and autoscaling
 ```
 
-چند نکته‌ی مهم قبل از تحویل:
-
-1. اگر اسم Service اصلی تو `n8n` است، در `route.yaml` مقدار زیر را از `n8n-main` به `n8n` تغییر بده:
-
-```yaml
-to:
-  kind: Service
-  name: n8n
-```
-
-2. مسیر Webhook را از داخل خود Webhook Node چک کن. اگر مسیر مثلاً `distributed-test` نیست، این بخش‌ها را اصلاح کن:
-
-```text
-/webhook/distributed-test
-```
-
-3. در README ادعا نکن که صرفاً از روی response، Worker مشخص شده است. مدرک واقعی باید ترکیب این موارد باشد:
-
-```text
-Execution در n8n
-+
-Worker Pod logs
-+
-Execution ID یا timestamp/request_id
-```
-
-4. چون محیط تو OpenShift است، در مستندات بنویس:
-
-```text
-OpenShift Route is used instead of a standard Kubernetes Ingress.
-```
-
-5. اگر فایل `route.yaml` هنوز نداری، نسخه‌ی متناسب با URL فعلی این است:
-
-```yaml
-apiVersion: route.openshift.io/v1
-kind: Route
-metadata:
-  name: n8n
-spec:
-  host: n8n-n8n.apps.ocp.nextsysadmin.local
-  to:
-    kind: Service
-    name: n8n-main
-  port:
-    targetPort: http
-  tls:
-    termination: edge
-    insecureEdgeTerminationPolicy: Redirect
-```
-
-اگر پورت Service تو اسم `http` ندارد، خروجی زیر را بگیر و مقدار `targetPort` را مطابق آن تغییر بده:
-
-```bash
-oc get svc n8n-main -n <namespace> -o yaml
-```
