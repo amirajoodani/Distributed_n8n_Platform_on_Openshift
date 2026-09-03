@@ -126,7 +126,7 @@ The same hostname is used for production webhooks.
 
 ## 4. Configuration
 
-### 5.1 Create or Select the OpenShift Project
+### 4.1 Create or Select the OpenShift Project
 
 ```bash
 oc new-project $NS
@@ -138,7 +138,7 @@ If the project already exists:
 oc project $NS
 ```
 
-### 5.2 Create Secrets
+### 4.2 Create Secrets
 
 Sensitive values should be stored in Kubernetes/OpenShift Secrets.
 
@@ -170,14 +170,13 @@ Check the created Secret without printing its values:
 oc get secret n8n-secrets -n $NS
 ```
 
-### 5.3 Apply Kubernetes/OpenShift Resources
+### 4.3 Apply Kubernetes/OpenShift Resources
 
 Apply resources in the following order:
 
 ```bash
 oc apply -f kubernetes/namespace.yaml
 oc apply -f kubernetes/secrets.example.yaml
-oc apply -f kubernetes/configmap.yaml
 oc apply -f kubernetes/postgres.yaml
 oc apply -f kubernetes/redis.yaml
 oc apply -f kubernetes/services.yaml
@@ -185,18 +184,32 @@ oc apply -f kubernetes/n8n-main.yaml
 oc apply -f kubernetes/n8n-worker.yaml
 oc apply -f kubernetes/route.yaml
 ```
+## 4.4 Output of configuration
+<b>4.4.1 (namespace)</b>  <br>
+<img width="1612" height="561" alt="ns" src="https://github.com/user-attachments/assets/425e78a3-4ec5-4af8-8aa4-b7d7ab364090" /> <br>
+<b>4.4.2 (PVs)</b> <br>
+<img width="1632" height="336" alt="pv" src="https://github.com/user-attachments/assets/7fc05218-7acf-463c-99ae-49f484677919" /> <br>
+<b>4.4.3 (PVCs )</b> <br>
+<img width="1612" height="355" alt="pvc" src="https://github.com/user-attachments/assets/58c944d6-0720-41e6-bedf-b6601c577921" /> <br>
+<b>4.4.4 (Secrets )</b> <br>
+<img width="1607" height="417" alt="n8n-secret" src="https://github.com/user-attachments/assets/4167e091-e616-49bf-a4fd-0a1d6eb97530" /> <br>
+<b>4.4.5 (Deployments )</b> <br>
+<img width="1605" height="431" alt="n8n-deployment" src="https://github.com/user-attachments/assets/1ab456f5-22ac-4f3f-b610-f10c6ec1532e" /> <br>
+<b>4.4.6 (Services )</b> <br>
+<img width="1621" height="449" alt="n8n service" src="https://github.com/user-attachments/assets/9c9a528d-828b-4f06-a646-514928be96d2" /> <br>
+<b>4.4.7 (Route )</b> <br>
+<img width="1632" height="352" alt="n8n route" src="https://github.com/user-attachments/assets/98aa73df-fb23-4fd2-8f37-a4a9d10e6a22" /> <br>
+<b>4.4.8 (Resource Qouta )</b> <br>
+<img width="1612" height="746" alt="n8n-resource-qouta" src="https://github.com/user-attachments/assets/2237726c-1876-4aab-bfaf-325d54212e1c" /> <br>
+<b>4.4.9 (HPA )</b> <br>
+<img width="1608" height="279" alt="HPA" src="https://github.com/user-attachments/assets/953f4dc2-142a-4864-af5a-10a72cdd6162" /> <br>
+<b>4.4.9 (Image Registry )</b> <br>
+<img width="1402" height="153" alt="image-registry" src="https://github.com/user-attachments/assets/db624358-6f28-4427-adc8-f4bd4de16ac7" /> <br>
 
-If the namespace is already selected, manifests can also be applied using:
-
-```bash
-oc apply -f kubernetes/
-```
-
-The actual Secret containing credentials should be created separately and should not be replaced by the example Secret.
 
 ---
 
-## 6. OpenShift Route
+## 5. How to access n8n
 
 OpenShift uses a `Route` to expose the n8n Main Service externally.
 
@@ -221,19 +234,6 @@ spec:
     insecureEdgeTerminationPolicy: Redirect
 ```
 
-The Service name and target port must match the actual n8n Main Service:
-
-```bash
-oc get svc -n $NS
-oc get route -n $NS
-```
-
-Verify the Route:
-
-```bash
-oc describe route n8n -n $NS
-```
-
 Current UI URL:
 
 ```text
@@ -243,64 +243,29 @@ https://n8n-n8n.apps.ocp.nextsysadmin.local/
 The Route forwards external HTTPS traffic to the n8n Main Service. TLS termination is performed at the OpenShift Router.
 
 ---
+<img width="1647" height="977" alt="n8n-ui" src="https://github.com/user-attachments/assets/8e43ecd8-2694-4076-86b6-a98281e07488" /> <br>
 
-## 7. Verify Deployment
+## 6. How to test the webhook
 
-Check all resources:
+- check url that n8n expose successfuly : <br>
+<img width="1647" height="977" alt="n8n-ui" src="https://github.com/user-attachments/assets/04cdfdfd-4c32-4e7e-80e3-9169111033b7" /> <br>
+- setup inital config for n8n ui : <br>
+<img width="1913" height="1000" alt="n8n-ui-setup" src="https://github.com/user-attachments/assets/224de8b5-2eaf-492a-9ed6-2fe99c6ffafb" /> <br>
+- create webhook like below : <br>
+<img width="1866" height="892" alt="webhook-ui" src="https://github.com/user-attachments/assets/48697366-41d7-4074-9f3d-5a1baf95761c" /> <br>
+- edit filed node like below to answer  "request_id Value: worker-test-001" : <br>
+<img width="1910" height="950" alt="edit-filed-node" src="https://github.com/user-attachments/assets/c52b1f15-5c80-4c7f-8323-29b2d43bf57e" /> <br>
+- check execution mode on main node and worker nodes : <br>
+<img width="980" height="228" alt="execution_mode" src="https://github.com/user-attachments/assets/2050aa38-7e08-44f8-85da-4f6e48f84f86" /> <br>
+<img width="978" height="213" alt="execution_mode_worker" src="https://github.com/user-attachments/assets/a6d044eb-923e-44e4-8d3b-6750cc2c3633" /> <br>
+- publish workflow and test webhook call  : <br>
+<img width="1666" height="248" alt="webhook-call" src="https://github.com/user-attachments/assets/60f87092-9dc6-450c-b65a-1dca3979e666" /> <br>
+- check output on ui : <br>
+<img width="1900" height="853" alt="test-webhook-ui-ok-output" src="https://github.com/user-attachments/assets/6e864069-2d09-4c49-a3e8-cc4a95544609" /> <br>
+- check logs of worker pods in openshift : <br>
+<img width="1637" height="476" alt="workerlog-for-execution-job" src="https://github.com/user-attachments/assets/5e4a966a-bd98-4c3c-841a-a6b4f8e15827" /> <br>
+<img width="1900" height="940" alt="workerlog-for-execution-job-ocp" src="https://github.com/user-attachments/assets/02f9a7a9-f728-48a0-ab3e-dddb085f21fc" /> <br>
 
-```bash
-oc get all -n $NS
-```
-
-Check Pods:
-
-```bash
-oc get pods -n $NS -o wide
-```
-
-Expected result:
-
-```text
-n8n-main-xxxxxxxxxx-xxxxx       1/1   Running
-n8n-worker-xxxxxxxxxx-xxxxx     1/1   Running
-n8n-worker-xxxxxxxxxx-yyyyy     1/1   Running
-redis-xxxxxxxxxx-xxxxx          1/1   Running
-postgres-0                      1/1   Running
-```
-
-Check Deployments:
-
-```bash
-oc get deployments -n $NS
-```
-
-Expected minimum deployment:
-
-```text
-n8n-main       1 replica
-n8n-worker     2 replicas
-```
-
-Check Worker replicas:
-
-```bash
-oc get deployment n8n-worker \
-  -n $NS \
-  -o jsonpath='{.spec.replicas}{"\n"}'
-```
-
-Expected output:
-
-```text
-2
-```
-
-Check rollout status:
-
-```bash
-oc rollout status deployment/n8n-main -n $NS
-oc rollout status deployment/n8n-worker -n $NS
-```
 
 ---
 
