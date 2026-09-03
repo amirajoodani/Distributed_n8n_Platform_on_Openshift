@@ -1,14 +1,4 @@
 # Distributed_n8n_Platform_on_Openshift
-حتماً. چون روی **OpenShift** هستی، در این پروژه عملاً به‌جای Kubernetes `Ingress` از resource نوع **Route** استفاده شده است. آدرس فعلی UI هم این است:
-
-```text
-https://n8n-n8n.apps.ocp.nextsysadmin.local/
-```
-
-فایل زیر را به‌عنوان `README.md` در ریشه‌ی Repository قرار بده. قسمت‌هایی که با `<...>` مشخص شده‌اند را در صورت نیاز با مقادیر واقعی محیط خودت جایگزین کن.
-
-```markdown
-# Distributed n8n Platform on OpenShift
 
 A distributed n8n platform running on OpenShift/Kubernetes using:
 
@@ -18,12 +8,26 @@ A distributed n8n platform running on OpenShift/Kubernetes using:
 - PostgreSQL as the n8n database
 - OpenShift Route for external access
 - Kubernetes Secrets for sensitive configuration
-
-This implementation was created as part of the DevOps Engineer Technical Challenge.
-
 ---
+## 1. Prerequisites
 
-## 1. Project Overview
+For design and implement a distributed n8n platform running on Openshift , there are some requirement to deploy n8n service :
+A ) an Openshift/kubernetes Cluster
+B ) a Container Registery with Redis,Postgresql,n8n Images
+C ) Persistance Storage for Postgresql and Redis pods
+
+## 2. Deployment steps
+The following steps describe how to deploy the distributed n8n platform on OpenShift.
+
+The deployment consists of:
+
+PostgreSQL
+Redis
+n8n Main
+Two n8n Workers
+OpenShift Route
+The deployment uses n8n Queue Mode, where n8n Main places workflow executions into Redis and the Workers consume and execute those jobs.
+## 3. Architecture
 
 The goal of this project is to demonstrate a distributed n8n architecture using Queue Mode.
 
