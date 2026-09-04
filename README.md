@@ -489,7 +489,7 @@ we test it in step 6 .<br>
 
 ---
 
-### 13 Known limitations
+## 13. Known limitations
 
 ### Limitations of This Architecture
 
