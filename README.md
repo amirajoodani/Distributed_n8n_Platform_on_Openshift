@@ -266,60 +266,14 @@ The Route forwards external HTTPS traffic to the n8n Main Service. TLS terminati
 <img width="1637" height="476" alt="workerlog-for-execution-job" src="https://github.com/user-attachments/assets/5e4a966a-bd98-4c3c-841a-a6b4f8e15827" /> <br>
 <img width="1900" height="940" alt="workerlog-for-execution-job-ocp" src="https://github.com/user-attachments/assets/02f9a7a9-f728-48a0-ab3e-dddb085f21fc" /> <br>
 
+## 7&8. Example request and Expected response
+send http request (webbook call ) and get response : <br>
+<img width="1666" height="248" alt="webhook-call" src="https://github.com/user-attachments/assets/3e901980-e447-4542-8334-adf28b338f44" /> <br>
+<img width="1900" height="853" alt="test-webhook-ui-ok-output" src="https://github.com/user-attachments/assets/b2040e8b-737d-4884-8b5b-b225bfcfab92" /> <br>
+
 
 ---
 
-## 8. n8n Queue Mode Configuration
-
-The Main and Worker deployments use the same shared configuration.
-
-Important configuration includes:
-
-```text
-EXECUTIONS_MODE=queue
-DB_TYPE=postgresdb
-DB_POSTGRESDB_HOST=<postgres-service>
-DB_POSTGRESDB_PORT=5432
-DB_POSTGRESDB_DATABASE=n8n
-QUEUE_BULL_REDIS_HOST=<redis-service>
-QUEUE_BULL_REDIS_PORT=6379
-N8N_ENCRYPTION_KEY=<shared-secret>
-```
-
-The `N8N_ENCRYPTION_KEY` must be exactly the same on:
-
-- n8n Main
-- Worker 1
-- Worker 2
-
-The encryption key is required so that Main and Workers can correctly access encrypted n8n credentials and data.
-
-Verify non-sensitive environment variables:
-
-```bash
-oc exec deployment/n8n-main -n $NS -- \
-  env | sort | grep -E 'EXECUTIONS_MODE|QUEUE|REDIS|DB_|EXECUTIONS'
-```
-
-Verify Worker configuration:
-
-```bash
-oc exec deployment/n8n-worker -n $NS -- \
-  env | sort | grep -E 'EXECUTIONS_MODE|QUEUE|REDIS|DB_|EXECUTIONS'
-```
-
-The encryption key itself must not be printed in documentation or logs.
-
-For comparison, a hash can be generated without exposing the key:
-
-```bash
-oc exec deployment/n8n-main -n $NS -- \
-  sh -c 'printf "%s" "$N8N_ENCRYPTION_KEY" | sha256sum'
-```
-
-Run the same command against a Worker Pod and compare the hashes.
-
----
 
 ## 9. How Queue Mode Works
 
@@ -349,1331 +303,302 @@ This design separates request handling from workflow execution and allows the Wo
 
 ---
 
-## 10. Simple Verification Workflow
+## 10. How Workers are configured
 
-The repository contains a simple workflow in:
+In this example, n8n Workers should be configured using **queue mode**. The main n8n instance receives requests and adds executions to Redis. The Workers retrieve those executions from Redis and process them.
 
-```text
-workflow.json
-```
-
-The workflow is intentionally simple and contains:
-
-```text
-Webhook
-  |
-  v
-Receive JSON
-  |
-  v
-Simple Processing
-  |
-  v
-Return Response
-```
-
-The workflow accepts input similar to:
-
-```json
-{
-  "message": "hello",
-  "request_id": "12345"
-}
-```
-
-The expected response is:
-
-```json
-{
-  "message": "hello",
-  "request_id": "12345",
-  "processed": true
-}
-```
-
-The workflow does not include complex business logic or external integrations. Its purpose is to verify the distributed n8n execution architecture.
-
----
-
-## 11. Accessing n8n
-
-Open the following URL in a browser:
-
-```text
-https://n8n-n8n.apps.ocp.nextsysadmin.local/
-```
-
-After logging in:
-
-1. Import `workflow.json`
-2. Confirm that the Webhook node is configured
-3. Save the workflow
-4. Activate the workflow
-5. Use the production webhook URL for testing
-
-Important:
-
-- `/webhook-test/` is intended for temporary test executions while the workflow is listening in test mode.
-- `/webhook/` is the production webhook path for an activated workflow.
-
----
-
-## 12. Webhook Test
-
-The example webhook endpoint is:
-
-```text
-https://n8n-n8n.apps.ocp.nextsysadmin.local/webhook/distributed-test
-```
-
-The exact path depends on the path configured in the Webhook node. If a different path is configured, replace `distributed-test` accordingly.
-
-Send a request:
-
-```bash
-curl -k -i -X POST \
-  'https://n8n-n8n.apps.ocp.nextsysadmin.local/webhook/distributed-test' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "message": "hello",
-    "request_id": "final-worker-test-001"
-  }'
-```
-
-Expected response:
-
-```json
-{
-  "message": "hello",
-  "request_id": "final-worker-test-001",
-  "processed": true
-}
-```
-
-The `-k` option is only required when the OpenShift cluster uses a certificate that is not trusted by the local machine.
-
-In a production environment, the cluster CA or a trusted public certificate should be installed instead of using `-k`.
-
----
-
-## 13. Verifying Worker Execution
-
-The execution must be verified using both n8n execution information and Worker logs.
-
-### 13.1 Watch Worker Logs
-
-List Worker Pods:
-
-```bash
-oc get pods -n $NS -l app=n8n-worker -o wide
-```
-
-Follow logs from all Worker Pods:
-
-```bash
-oc logs -n $NS \
-  -l app=n8n-worker \
-  --prefix=true \
-  --timestamps=true \
-  -f
-```
-
-If the label is different, list the Pods and use their names directly:
-
-```bash
-oc get pods -n $NS
-oc logs -n $NS <worker-pod-name> -f --timestamps=true
-```
-
-### 13.2 Send a Request with a Unique Request ID
-
-```bash
-curl -k -i -X POST \
-  'https://n8n-n8n.apps.ocp.nextsysadmin.local/webhook/distributed-test' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "message": "hello",
-    "request_id": "worker-proof-001"
-  }'
-```
-
-### 13.3 Save Recent Worker Logs
-
-```bash
-oc logs -n $NS \
-  -l app=n8n-worker \
-  --prefix=true \
-  --timestamps=true \
-  --since=10m > worker-execution-proof.log
-```
-
-Search the logs:
-
-```bash
-grep -iE \
-  'worker-proof-001|execution|job|processed|success' \
-  worker-execution-proof.log
-```
-
-The exact log format depends on the n8n version and logging configuration.
-
-The strongest verification is correlating:
-
-1. The webhook request timestamp or request ID
-2. The execution record in the n8n UI
-3. The corresponding Worker Pod log
-4. The Execution ID, where available
-
-The expected execution path is:
-
-```text
-HTTP Request
-  |
-  v
-OpenShift Route
-  |
-  v
-n8n Main
-  |
-  v
-Redis Queue
-  |
-  v
-n8n Worker
-  |
-  v
-Workflow Execution
-```
-
-A field such as `"processed": true` alone does not prove that a Worker executed the workflow. Worker logs and execution information are used as the evidence.
-
----
-
-## 14. Scaling Workers
-
-The Worker Deployment is independently scalable from n8n Main.
-
-Current state:
-
-```bash
-oc get deployment n8n-worker -n $NS
-```
-
-Scale from two to three Workers:
-
-```bash
-oc scale deployment/n8n-worker \
-  -n $NS \
-  --replicas=3
-```
-
-Wait for the rollout:
-
-```bash
-oc rollout status deployment/n8n-worker -n $NS
-```
-
-Verify the Pods:
-
-```bash
-oc get pods -n $NS -l app=n8n-worker -o wide
-```
-
-Scale back to two Workers:
-
-```bash
-oc scale deployment/n8n-worker \
-  -n $NS \
-  --replicas=2
-```
-
-In a larger environment, the same mechanism can be used to scale to five or ten Workers:
-
-```bash
-oc scale deployment/n8n-worker \
-  -n $NS \
-  --replicas=10
-```
-
-Workers increase execution capacity without scaling the UI/API component. The practical limit depends on:
-
-- CPU and memory available in the cluster
-- Workflow execution duration
-- Redis capacity
-- PostgreSQL capacity
-- External API rate limits
-- Worker concurrency
-- The number of simultaneous executions
-
----
-
-## 15. Resource Requests, Limits and Probes
-
-The Deployments should define resource requests and limits.
-
-Example:
+### Main n8n Instance
 
 ```yaml
-resources:
-  requests:
-    cpu: 100m
-    memory: 256Mi
-  limits:
-    cpu: "1"
-    memory: 1Gi
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: n8n-main
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: n8n-main
+  template:
+    metadata:
+      labels:
+        app: n8n-main
+    spec:
+      containers:
+        - name: n8n
+          image: n8nio/n8n:latest
+          command:
+            - n8n
+          args:
+            - start
+          env:
+            - name: EXECUTIONS_MODE
+              value: queue
+
+            - name: QUEUE_BULL_REDIS_HOST
+              value: redis
+
+            - name: QUEUE_BULL_REDIS_PORT
+              value: "6379"
+
+            - name: DB_TYPE
+              value: postgresdb
+
+            - name: DB_POSTGRESDB_HOST
+              value: postgresql
+
+            - name: DB_POSTGRESDB_PORT
+              value: "5432"
+
+            - name: DB_POSTGRESDB_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-database-secret
+                  key: database
+
+            - name: DB_POSTGRESDB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-database-secret
+                  key: username
+
+            - name: DB_POSTGRESDB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-database-secret
+                  key: password
+
+            - name: N8N_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-secret
+                  key: encryption-key
 ```
 
-These values are starting points and should be tuned using actual metrics.
+### n8n Worker Deployment
 
-Inspect the deployed resources:
+Workers use the same n8n image and configuration, but they run the `worker` command instead of `start`.
 
-```bash
-oc get deployment n8n-main -n $NS -o yaml
-oc get deployment n8n-worker -n $NS -o yaml
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: n8n-worker
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: n8n-worker
+  template:
+    metadata:
+      labels:
+        app: n8n-worker
+    spec:
+      containers:
+        - name: n8n-worker
+          image: n8nio/n8n:latest
+          command:
+            - n8n
+          args:
+            - worker
+          env:
+            - name: EXECUTIONS_MODE
+              value: queue
+
+            - name: QUEUE_BULL_REDIS_HOST
+              value: redis
+
+            - name: QUEUE_BULL_REDIS_PORT
+              value: "6379"
+
+            - name: DB_TYPE
+              value: postgresdb
+
+            - name: DB_POSTGRESDB_HOST
+              value: postgresql
+
+            - name: DB_POSTGRESDB_PORT
+              value: "5432"
+
+            - name: DB_POSTGRESDB_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-database-secret
+                  key: database
+
+            - name: DB_POSTGRESDB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-database-secret
+                  key: username
+
+            - name: DB_POSTGRESDB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-database-secret
+                  key: password
+
+            - name: N8N_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-secret
+                  key: encryption-key
 ```
 
-Inspect Pod events and probes:
+### Important Configuration Notes
 
-```bash
-oc describe pod -n $NS <main-pod-name>
-oc describe pod -n $NS <worker-pod-name>
+- `EXECUTIONS_MODE` must be set to `queue`.
+- The main instance and all Workers must use the same:
+  - Redis server
+  - PostgreSQL database
+  - `N8N_ENCRYPTION_KEY`
+- The number of Workers is controlled by:
+
+```yaml
+spec:
+  replicas: 3
 ```
 
-The deployment should include:
+- Each Worker can process multiple executions concurrently. This can be configured with:
 
-- Readiness probe
-- Liveness probe
-- Resource requests
-- Resource limits
-- Restart behavior through the Deployment controller
+```yaml
+- name: n8n_worker_max_concurrency
+  value: "10"
+```
 
-Readiness probes prevent traffic from being sent to an unavailable Main Pod.
+The total processing capacity in this example is approximately:
 
-Liveness probes allow OpenShift/Kubernetes to restart a stuck container.
+```text
+3 Workers × 10 concurrent executions = 30 concurrent executions
+```
 
+Workers do not require a public route or external service because they communicate internally with Redis and PostgreSQL.
 ---
 
-## 16. PostgreSQL
+## 11. How to scale Workers
 
-PostgreSQL is used as the n8n database.
-
-It stores:
-
-- Workflow definitions
-- Credentials metadata
-- Execution metadata
-- User and configuration data
-- n8n application state
-
-Check PostgreSQL resources:
-
-```bash
-oc get pod -n $NS
-oc get svc -n $NS
-oc get pvc -n $NS
-```
-
-Check PersistentVolumeClaims:
-
-```bash
-oc describe pvc -n $NS
-```
-
-Both n8n Main and n8n Workers must connect to the same PostgreSQL instance/service.
-
-The challenge implementation uses one PostgreSQL instance. This is sufficient for the technical challenge but is a single point of failure for production.
-
+we used HPA to Scale worker pods based on cpu and Memory .also we can use other parameters to scale workers like number of queue . 
 ---
 
-## 17. Redis
 
-Redis is used as the n8n Queue Mode backend.
+## 12. Verifying Worker Execution
 
-Redis responsibilities:
+we test it in step 6 .<br>
 
-- Store pending execution jobs
-- Allow Main to enqueue jobs
-- Allow Workers to consume jobs
-- Coordinate asynchronous execution
+### 13 Known limitations
 
-Redis is connected to both Main and Workers.
+### Limitations of This Architecture
 
-Check Redis:
+This example is suitable for development, testing, or a small production deployment, but it has several limitations.
 
-```bash
-oc get pods -n $NS
-oc get svc -n $NS
-oc logs -n $NS <redis-pod-name>
-```
+#### 13.1 Single-node Redis
+
+Redis is deployed as a single instance and represents a single point of failure.
 
 If Redis becomes unavailable:
 
-- New queue-based executions may fail or remain unavailable
-- Main may not be able to enqueue new jobs
-- Workers may lose connectivity to the queue
-- Existing executions can be affected depending on their current state
-- Recovery requires restoring Redis connectivity and validating pending jobs
+- New executions cannot be queued.
+- Workers cannot retrieve queued executions.
+- Queue-based workflow processing stops.
+- Redis data may be lost if persistence is not enabled.
 
-Redis is deployed as a single instance for this challenge. Redis HA, persistence tuning, Sentinel or Redis Cluster are not implemented here.
+For production, Redis should be replaced with a highly available solution, such as:
 
----
-
-## 18. Configuration and Secrets
-
-Credentials are not hardcoded in:
-
-- Git
-- Container images
-- Workflow code
-- Plain Kubernetes manifests
-
-Sensitive configuration is stored in OpenShift Secrets, including:
-
-- PostgreSQL username
-- PostgreSQL password
-- n8n encryption key
-- Redis password, if enabled
-
-The encryption key is especially important. It must be shared by Main and all Workers.
-
-Example Secret structure:
-
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: n8n-secrets
-type: Opaque
-stringData:
-  DB_POSTGRESDB_USER: change-me
-  DB_POSTGRESDB_PASSWORD: change-me
-  DB_POSTGRESDB_DATABASE: n8n
-  N8N_ENCRYPTION_KEY: change-me
-```
-
-This file is an example only. Real credentials must be provisioned outside Git.
-
-For enterprise environments, the recommended approach is:
-
-- External Secrets Operator
-- HashiCorp Vault
-- OpenShift Secret Store integration
-- Cloud Secret Manager
-- Automatic secret rotation
-- Audited access to secrets
-
----
-
-## 19. Known Limitations
-
-This implementation is intentionally focused on the technical challenge and has the following limitations:
-
-1. PostgreSQL is deployed as a single instance.
-2. Redis is deployed as a single instance.
-3. There is one n8n Main replica.
-4. No production-grade Redis HA is implemented.
-5. No production-grade PostgreSQL HA is implemented.
-6. Full SSO/OIDC integration is not implemented.
-7. No complete monitoring stack is included.
-8. No autoscaling based on queue depth is implemented.
-9. No complete CI/CD pipeline is implemented.
-10. No cross-region disaster recovery is implemented.
-11. The OpenShift Route and platform certificate depend on the cluster configuration.
-12. The simple workflow does not represent a complex business workflow.
-13. Persistent storage, backup and restore policies require production hardening.
-14. Queue and execution metrics require additional observability integration.
-
-These limitations are addressed in the enterprise proposal below.
-
----
-
-# Enterprise Architecture Proposal
-
-## 20. Enterprise Target
-
-The target organization has approximately 300 users across multiple technical and business teams.
-
-The production platform should support:
-
-- Multiple departments
-- Multiple workflows
-- Business-critical automations
-- Secure credentials
-- Team isolation
-- High availability
-- Horizontal scaling
-- Monitoring and alerting
-- Backup and disaster recovery
-- Centralized authentication
-
----
-
-## 21. Enterprise Architecture Diagram
-
-```mermaid
-flowchart TD
-    Users[Approximately 300 Users]
-    IdP[Enterprise Identity Provider<br/>Entra ID / Keycloak / Okta]
-    Router[Highly Available OpenShift Router]
-    Main1[n8n Main 1]
-    Main2[n8n Main 2]
-    RedisHA[(Redis HA<br/>Sentinel or Managed Redis)]
-    WorkerPool[n8n Worker Pool<br/>Autoscaled]
-    PgHA[(PostgreSQL HA<br/>Primary + Standby)]
-    Backup[(Encrypted Backup Storage)]
-    Monitoring[Prometheus / Grafana / Alertmanager]
-    Logs[Centralized Logging]
-    Secrets[Vault / External Secrets Operator]
-    External[External APIs]
-
-    Users --> Router
-    Users --> IdP
-    IdP --> Main1
-    IdP --> Main2
-
-    Router --> Main1
-    Router --> Main2
-
-    Main1 --> RedisHA
-    Main2 --> RedisHA
-
-    RedisHA --> WorkerPool
-    WorkerPool --> PgHA
-    Main1 --> PgHA
-    Main2 --> PgHA
-    WorkerPool --> External
-
-    PgHA --> Backup
-    Main1 --> Monitoring
-    Main2 --> Monitoring
-    WorkerPool --> Monitoring
-    RedisHA --> Monitoring
-    PgHA --> Monitoring
-
-    Main1 --> Logs
-    Main2 --> Logs
-    WorkerPool --> Logs
-
-    Secrets --> Main1
-    Secrets --> Main2
-    Secrets --> WorkerPool
-```
-
----
-
-## 22. High Availability
-
-### Current Single Points of Failure
-
-The current challenge implementation has these single points of failure:
-
-- One n8n Main replica
-- One Redis instance
-- One PostgreSQL instance
-- One storage instance or volume
-- Potentially one OpenShift Route endpoint, depending on cluster design
-
-### Production Improvements
-
-#### n8n Main
-
-Run multiple Main replicas behind the OpenShift Service and Route:
-
-```text
-n8n Main x2 or more
-```
-
-Main replicas should share:
-
-- PostgreSQL
-- Redis
-- Encryption key
-- Configuration
-- External authentication provider
-
-#### n8n Workers
-
-Run multiple Worker replicas across different nodes or availability zones:
-
-```text
-n8n Worker xN
-```
-
-Use topology spread constraints or pod anti-affinity to avoid placing all Workers on the same node.
-
-#### Redis
-
-Use one of:
-
-- Managed Redis
 - Redis Sentinel
 - Redis Cluster
-- A platform-supported HA Redis service
+- A managed Redis service
 
-Redis should have:
+Redis persistence, authentication, TLS, memory limits, and eviction policies should also be configured.
 
-- Persistent storage where appropriate
-- Authentication
-- TLS
-- Monitoring
-- Memory policies
-- Failure detection
-- Tested recovery procedures
+#### 13.2 Single PostgreSQL Instance
 
-#### PostgreSQL
+PostgreSQL is also deployed as a single instance. It stores:
 
-Use:
+- Workflow definitions
+- Credentials
+- Execution metadata
+- User and project information
+- n8n configuration data
 
-- PostgreSQL HA operator
-- Primary and standby replicas
-- Synchronous or asynchronous replication
-- Automated failover
-- Connection pooling
-- Encrypted backups
+If PostgreSQL fails, n8n may become unavailable even if Redis and the Workers are still running.
+
+The example does not provide:
+
+- Database replication
+- Automatic failover
+- Automated backups
 - Point-in-time recovery
+- Read replicas
+- High availability
 
-#### OpenShift
+For production, PostgreSQL should use a managed database or a highly available setup, such as a PostgreSQL Operator with replication and failover.
 
-Use:
+#### 13.3 Single n8n Main Node
 
-- Multiple control-plane and worker nodes
-- Redundant routers
-- Multiple availability zones where possible
-- Pod anti-affinity
-- PodDisruptionBudgets
-- Resource quotas
-- NetworkPolicies
+The example uses one n8n main instance. This instance is responsible for:
 
----
+- Serving the n8n editor and API
+- Receiving webhook requests
+- Creating executions
+- Managing scheduled and polling triggers
+- Publishing jobs to Redis
 
-## 23. Scalability
+Therefore, the main instance is another single point of failure.
 
-Workers are the main execution-capacity scaling unit.
+If it goes down:
 
-Scale Workers based on:
+- The n8n editor becomes unavailable.
+- New webhook requests may fail.
+- New executions may not be created.
+- Scheduled or polling triggers may stop running.
 
-- Queue depth
-- Processing latency
-- CPU utilization
-- Memory utilization
-- Active executions
-- Failed jobs
-- Workflow duration
+Existing jobs that are already in Redis may still be processed by Workers, but no new jobs will normally be created by the unavailable main instance.
 
-Example:
+For higher availability, the main n8n service should be deployed behind a load balancer with multiple replicas. All replicas must use the same PostgreSQL database, Redis instance, and `N8N_ENCRYPTION_KEY`. Care must also be taken with scheduled and polling triggers to avoid duplicate executions.
 
-```bash
-oc scale deployment/n8n-worker \
-  -n $NS \
-  --replicas=10
-```
+#### 13.4 Workers Are Not a Complete High-Availability Solution
 
-In production, Horizontal Pod Autoscaling or a custom autoscaler could use:
+Adding more Workers increases execution capacity, but it does not remove the dependency on Redis, PostgreSQL, or the main n8n instance.
 
-- CPU and memory metrics
-- Redis queue depth
-- Execution latency
-- Number of pending jobs
-
-Potential bottlenecks include:
-
-1. Worker CPU or memory
-2. Worker concurrency
-3. Redis memory or connections
-4. PostgreSQL CPU, connections or query latency
-5. Persistent storage I/O
-6. External API latency and rate limits
-7. OpenShift node capacity
-
-Queue growth should be interpreted together with Worker capacity and workflow duration. Adding Workers does not solve a bottleneck in PostgreSQL or an external API.
-
----
-
-## 24. Authentication
-
-For approximately 300 users, n8n should integrate with an enterprise Identity Provider using OIDC or SAML.
-
-Possible providers:
-
-- Microsoft Entra ID
-- Keycloak
-- Okta
-- Authentik
-
-Recommended approach:
-
-1. Integrate n8n with the corporate Identity Provider.
-2. Enforce MFA at the Identity Provider.
-3. Use group-based access.
-4. Automate user lifecycle management.
-5. Disable or restrict local accounts where possible.
-6. Audit login and administrative events.
-7. Apply session timeout and access policies.
-
-Microsoft Entra ID is a practical choice for organizations already using Microsoft 365. Keycloak is suitable when an independently managed open-source Identity Provider is preferred.
-
----
-
-## 25. Authorization and Team Isolation
-
-Teams should not have unrestricted access to one another's workflows and credentials.
-
-Recommended design:
-
-- Create separate n8n projects or teams for departments.
-- Map Identity Provider groups to n8n teams.
-- Give each team only the minimum required permissions.
-- Restrict credential creation and sharing.
-- Separate administrative users from workflow developers.
-- Use dedicated service accounts for integrations.
-- Audit credential and workflow access.
-
-Example logical separation:
+For example:
 
 ```text
-Finance
-  - Finance workflows
-  - Finance credentials
-  - Finance users
-
-DevOps
-  - DevOps workflows
-  - DevOps credentials
-  - DevOps users
+3 Workers + 1 Redis + 1 PostgreSQL + 1 n8n Main
 ```
 
-n8n access-control capabilities and edition-specific limitations should be evaluated before production. Where strict isolation is required, separate n8n instances or namespaces may be more appropriate than relying only on logical project separation.
+provides execution scaling, but Redis, PostgreSQL, and the main n8n instance remain potential failure points.
 
----
+#### 13.5 Persistent Storage Limitations
 
-## 26. Security Risks and Controls
+If Redis or PostgreSQL uses local or non-replicated persistent storage:
 
-| Risk | Proposed Control |
-|---|---|
-| Credential exposure | Kubernetes Secrets, External Secrets Operator or Vault |
-| Unauthorized workflow access | SSO, RBAC, least privilege and team isolation |
-| Public webhook abuse | Authentication, signature validation, rate limiting and WAF |
-| Sensitive data in logs | Redaction, structured logging and restricted log access |
-| Excessive network access | Kubernetes NetworkPolicies and egress restrictions |
-| Untrusted workflow execution | Controlled user access, code review and sandboxing |
-| Weak encryption key | Strong randomly generated key stored in a secret manager |
-| Vulnerable container image | Image scanning and regular patching |
-| Route exposure | TLS, secure headers and controlled network access |
-| Data loss | PostgreSQL backups and tested restore procedures |
-| DoS through executions | Quotas, rate limits and execution policies |
-| Secret sprawl | Centralized secret management and rotation |
+- Data may be lost after node failure.
+- Pods may not be able to restart on another Kubernetes node.
+- Recovery may require manual intervention.
 
----
+Production deployments should use reliable persistent volumes with backups and, where possible, storage replication.
 
-## 27. Failure Handling
+#### 13.6 External Webhook Dependency
 
-### 27.1 Redis Failure
+If workflows receive webhooks, the n8n webhook endpoint must be reachable from external systems. A failure in the main n8n service, ingress, load balancer, or DNS can prevent webhook delivery.
 
-Expected behavior:
+For reliable webhook processing, the deployment should include:
 
-- Main cannot reliably enqueue new executions.
-- New webhook-triggered executions may fail or become unavailable.
-- Workers cannot consume new jobs.
-- Pending executions may remain unavailable until Redis is recovered.
-- Existing in-progress workflow behavior depends on the execution state and n8n version.
+- A highly available ingress or load balancer
+- Appropriate timeout settings
+- Retry handling from the external provider
+- Webhook processor scaling when required
 
-Recovery steps:
+### Summary
 
-1. Verify Redis Pod and Service.
-2. Check Redis logs.
-3. Check DNS and network connectivity from Main and Workers.
-4. Check Redis memory and connection limits.
-5. Restore Redis or fail over to the HA instance.
-6. Validate queue health.
-7. Send a controlled webhook test.
-8. Check execution status and Worker logs.
-
-Production improvement:
-
-- Managed Redis or Redis HA
-- Authentication and TLS
-- Persistent configuration where required
-- Monitoring and alerting
-- Tested failover procedure
-
-### 27.2 Worker Failure
-
-If one Worker fails:
-
-- The other Worker can continue processing jobs.
-- Kubernetes marks the failed Pod as unhealthy.
-- The Deployment controller recreates the Pod.
-- Pending jobs remain in Redis and can be consumed by an available Worker.
-- An execution interrupted during processing may require retry or recovery depending on its state.
-
-Troubleshooting:
-
-```bash
-oc get pods -n $NS -l app=n8n-worker
-oc describe pod -n $NS <worker-pod-name>
-oc logs -n $NS <worker-pod-name> --previous
-oc get events -n $NS --sort-by=.lastTimestamp
-```
-
-Check:
-
-- OOMKilled status
-- CPU throttling
-- Memory limits
-- Redis connectivity
-- PostgreSQL connectivity
-- Worker concurrency
-- Node health
-- Image and configuration errors
-
-### 27.3 PostgreSQL Failure
-
-Potential impact:
-
-- Main may not be able to load workflows or create executions.
-- Workers may not be able to persist execution state.
-- New executions can fail.
-- Existing executions may fail or remain incomplete.
-- User access to the UI may be degraded.
-
-Production recovery should include:
-
-- PostgreSQL HA
-- Automated failover
-- Point-in-time recovery
-- Connection pooling
-- Regular restore tests
-- Monitoring storage and query latency
-
-### 27.4 External API Failure
-
-For workflows that call external APIs:
-
-- Configure connection and request timeouts.
-- Use bounded retries.
-- Apply exponential backoff.
-- Use rate limiting.
-- Handle 5xx responses explicitly.
-- Avoid retrying non-retryable 4xx errors.
-- Use dead-letter or error workflows where appropriate.
-- Prevent one failing dependency from exhausting all Workers.
-
----
-
-## 28. Observability Proposal
-
-A production monitoring solution should collect metrics for the following areas.
-
-### n8n
-
-- Workflow execution count
-- Failed executions
-- Execution duration
-- Active executions
-- Error workflow count
-- Webhook response latency
-
-### Queue
-
-- Queue depth
-- Processing latency
-- Waiting jobs
-- Failed jobs
-- Stalled jobs
-- Retry count
-
-### Workers
-
-- Available Worker replicas
-- CPU usage
-- Memory usage
-- Restart count
-- Execution capacity
-- Worker processing latency
-
-### Redis
-
-- Availability
-- Memory usage
-- Connected clients
-- Command latency
-- Queue-related metrics
-- Evictions and rejected connections
-
-### PostgreSQL
-
-- Availability
-- CPU usage
-- Memory usage
-- Active connections
-- Query latency
-- Lock activity
-- Storage utilization
-- Replication lag in HA mode
-
-### Kubernetes/OpenShift
-
-- Pod readiness
-- Pod restarts
-- OOMKilled events
-- Deployment availability
-- PVC capacity
-- Node pressure
-- Route errors and HTTP 5xx responses
-
-### Logging
-
-Logs should include:
-
-- Timestamp
-- Component name
-- Pod name
-- Execution ID where available
-- Request correlation ID
-- Error type
-- Retry information
-- Duration
-
-Logs must not include:
-
-- Passwords
-- API tokens
-- Encryption keys
-- OAuth client secrets
-- Sensitive business payloads
-- Personal data unless strictly required
-
-### Recommended Alerts
-
-- High workflow failure rate
-- Queue continuously growing
-- Worker replica unavailable
-- Redis unavailable
-- PostgreSQL unavailable
-- High execution latency
-- High restart count
-- PVC nearly full
-- High memory usage
-- HTTP 502/503 rate above threshold
-
----
-
-## 29. Backup and Disaster Recovery
-
-### Suggested Production Targets
-
-| Item | Target |
-|---|---|
-| RPO | 15 minutes or less for business-critical data |
-| RTO | 1 hour or less |
-| PostgreSQL backup | Daily full backup plus continuous WAL/PITR |
-| Backup retention | 30 to 90 days |
-| Backup location | Separate encrypted object storage |
-| Restore testing | At least quarterly |
-
-### Data to Back Up
-
-- PostgreSQL database
-- n8n workflows
-- n8n users and configuration
-- Credentials metadata
-- Kubernetes manifests
-- ConfigMaps
-- Secret references
-- External secret configuration
-- Route and Service configuration
-
-Actual secret values should be backed up through the approved secret-management system, not committed to Git.
-
-### Restore Strategy
-
-1. Provision a clean OpenShift namespace.
-2. Restore PostgreSQL.
-3. Restore or recreate Redis.
-4. Restore Secrets using the secret-management solution.
-5. Deploy n8n Main and Workers.
-6. Verify the shared encryption key.
-7. Validate workflow and credential access.
-8. Execute a controlled webhook test.
-9. Confirm Worker execution and database persistence.
-
-Restore procedures must be tested regularly.
-
----
-
-## 30. CI/CD Proposal
-
-Recommended environment flow:
+The architecture provides **horizontal scaling for workflow execution**, but it is not fully highly available:
 
 ```text
-Development
-    |
-    v
-Staging
-    |
-    v
-Production
+Workers:             Scalable
+n8n Main:            Single point of failure
+Redis:               Single point of failure
+PostgreSQL:          Single point of failure
+Persistent storage:  Depends on the storage backend
 ```
 
-### Kubernetes Configuration
-
-- Store manifests in Git.
-- Use Kustomize overlays or Helm values per environment.
-- Review changes through pull requests.
-- Use GitOps with Argo CD or OpenShift GitOps where possible.
-- Separate environment configuration from application code.
-
-### n8n Workflows
-
-- Export workflows to version-controlled JSON.
-- Review workflow changes.
-- Avoid storing secrets inside workflow JSON.
-- Promote workflows from Development to Staging and Production.
-- Use controlled import/deployment procedures.
-
-### Secrets
-
-- Do not store real secrets in Git.
-- Use Vault, External Secrets Operator or a cloud secret manager.
-- Rotate secrets regularly.
-- Limit access by namespace and service account.
-
-### Deployment and Rollback
-
-- Deploy immutable image versions.
-- Use rolling updates.
-- Verify readiness and smoke tests.
-- Keep previous image and manifest versions.
-- Roll back using Git or:
-
-```bash
-oc rollout undo deployment/n8n-main -n $NS
-oc rollout undo deployment/n8n-worker -n $NS
-```
-
----
-
-## 31. Troubleshooting Scenarios
-
-### Scenario A: Queue Growth
-
-Symptoms:
-
-```text
-Queue depth: 100 -> 500 -> 2,000 -> 10,000
-```
-
-Investigation steps:
-
-1. Check Worker availability:
-
-```bash
-oc get pods -n $NS -l app=n8n-worker
-oc get deployment n8n-worker -n $NS
-```
-
-2. Check Worker logs:
-
-```bash
-oc logs -n $NS \
-  -l app=n8n-worker \
-  --prefix=true \
-  --since=15m
-```
-
-3. Check CPU and memory:
-
-```bash
-oc adm top pods -n $NS
-```
-
-4. Check Worker restarts and OOMKilled events:
-
-```bash
-oc get pods -n $NS
-oc describe pod -n $NS <worker-pod-name>
-```
-
-5. Check Redis health and resource usage.
-6. Check PostgreSQL connectivity and latency.
-7. Check workflow execution duration.
-8. Check external API response timeouts and rate limits.
-9. Increase Worker replicas if Workers are the bottleneck.
-10. Review concurrency and resource limits.
-
-Scaling example:
-
-```bash
-oc scale deployment/n8n-worker \
-  -n $NS \
-  --replicas=5
-```
-
-A continuously growing queue indicates that incoming work is arriving faster than the platform can process it. Adding Workers is appropriate only when Redis, PostgreSQL and external dependencies can support the additional load.
-
-### Scenario B: Worker Failure
-
-Symptoms:
-
-```text
-Worker 1 DOWN
-Worker 2 RUNNING
-```
-
-Expected behavior:
-
-- Worker 2 continues processing jobs.
-- Kubernetes restarts Worker 1.
-- Pending jobs remain available for processing.
-- Capacity is temporarily reduced.
-
-Investigation commands:
-
-```bash
-oc get pods -n $NS -l app=n8n-worker -o wide
-oc describe pod -n $NS <failed-worker-pod-name>
-oc logs -n $NS <failed-worker-pod-name> --previous
-oc get events -n $NS --sort-by=.lastTimestamp
-```
-
-Investigate:
-
-- Container exit code
-- OOMKilled status
-- Redis connectivity
-- PostgreSQL connectivity
-- CPU and memory limits
-- Node conditions
-- Image pull failures
-- Configuration and Secret references
-- Probe failures
-
-After recovery:
-
-```bash
-oc rollout status deployment/n8n-worker -n $NS
-oc get pods -n $NS -l app=n8n-worker
-```
-
-Send a controlled test request and correlate the execution with Worker logs.
-
-### Scenario C: HTTP 502
-
-For an HTTP 502, inspect the complete path:
-
-```text
-Client
-  |
-  v
-OpenShift Route
-  |
-  v
-Service
-  |
-  v
-n8n Main
-```
-
-Commands:
-
-```bash
-oc get route -n $NS
-oc describe route n8n -n $NS
-oc get svc -n $NS
-oc get endpoints -n $NS
-oc get pods -n $NS -o wide
-oc logs -n $NS deployment/n8n-main --since=15m
-```
-
-Check:
-
-- Route target Service name
-- Service target port
-- Service selector
-- Endpoint availability
-- Main Pod readiness
-- TLS termination
-- Network policies
-- Application listening port
-- Recent deployment or configuration changes
-
----
-
-## 32. Important Technical Decisions
-
-### Queue Mode
-
-**Decision:** Use n8n Queue Mode.
-
-**Reason:**  
-Queue Mode separates HTTP/API handling from workflow execution and allows executions to be distributed across multiple Workers.
-
-**Alternative:**  
-Run a single n8n instance in regular execution mode.
-
-**Trade-off:**  
-Queue Mode requires Redis and shared configuration, but provides better scalability and separation of responsibilities.
-
-### Redis
-
-**Decision:**  
-Use Redis as the actual n8n execution queue.
-
-**Reason:**  
-n8n uses Redis to enqueue and distribute execution jobs between Main and Workers.
-
-**Alternative:**  
-Use a single in-process n8n instance.
-
-**Trade-off:**  
-Redis introduces an additional dependency and operational responsibility, but is required for distributed Queue Mode.
-
-### Worker Separation
-
-**Decision:**  
-Deploy Workers as a separate Deployment with two replicas.
-
-**Reason:**  
-Workers can be scaled independently without scaling the UI/API layer.
-
-**Alternative:**  
-Run execution processes inside the Main Pod.
-
-**Trade-off:**  
-Separate Workers require shared database, Redis and encryption configuration.
-
-### OpenShift/Kubernetes
-
-**Decision:**  
-Use Deployments, Services, Secrets, PVCs and an OpenShift Route.
-
-**Reason:**  
-Kubernetes provides declarative deployment, restart behavior, service discovery and horizontal scaling.
-
-**Alternative:**  
-Run n8n directly on virtual machines.
-
-**Trade-off:**  
-Kubernetes adds platform complexity but improves repeatability and operations.
-
-### PostgreSQL
-
-**Decision:**  
-Use PostgreSQL as the shared n8n database.
-
-**Reason:**  
-PostgreSQL is suitable for persistent workflow, user and execution metadata.
-
-**Alternative:**  
-Use SQLite for a single-node test environment.
-
-**Trade-off:**  
-PostgreSQL requires persistent storage and database operations but is appropriate for a distributed n8n deployment.
-
-### Scaling
-
-**Decision:**  
-Scale the Worker Deployment horizontally.
-
-**Reason:**  
-Workflow execution is the main capacity dimension and Workers consume jobs independently.
-
-**Trade-off:**  
-Additional Workers increase load on Redis, PostgreSQL and external dependencies.
-
----
-
-## 33. Final Validation Checklist
-
-### Kubernetes/OpenShift
-
-- [ ] Namespace/project exists
-- [ ] n8n Main Deployment is running
-- [ ] n8n Worker Deployment has two replicas
-- [ ] Redis is running
-- [ ] PostgreSQL is running
-- [ ] PostgreSQL uses PersistentVolumeClaim
-- [ ] Services are available
-- [ ] OpenShift Route is configured
-- [ ] Resource requests and limits are configured
-- [ ] Readiness probes are configured
-- [ ] Liveness probes are configured
-
-### n8n
-
-- [ ] Queue Mode is enabled
-- [ ] Main uses PostgreSQL
-- [ ] Workers use PostgreSQL
-- [ ] Main uses Redis
-- [ ] Workers use Redis
-- [ ] Main and Workers use the same encryption key
-- [ ] Workflow is imported
-- [ ] Workflow is activated
-- [ ] Production webhook works
-
-### Verification
-
-- [ ] Webhook request returns the expected response
-- [ ] Execution is visible in n8n
-- [ ] Worker logs show execution activity
-- [ ] Execution ID or timestamp is correlated with Worker logs
-- [ ] Worker scaling from two to three replicas works
-- [ ] Worker scaling back to two replicas works
-
-### Documentation
-
-- [ ] Architecture documented
-- [ ] Queue Mode documented
-- [ ] Worker scaling documented
-- [ ] Failure handling documented
-- [ ] Security proposal documented
-- [ ] Enterprise architecture documented
-- [ ] Backup and DR proposal documented
-- [ ] Observability proposal documented
-- [ ] Troubleshooting scenarios documented
-- [ ] No real credentials committed to Git
-
----
-
-## 34. Summary
-
-This implementation demonstrates a distributed n8n platform running on OpenShift:
-
-```text
-Client
-  |
-  v
-OpenShift Route
-  |
-  v
-n8n Main
-  |
-  v
-Redis Queue
-  |
-  +----------------+
-  |                |
-  v                v
-Worker 1        Worker 2
-  |
-  v
-PostgreSQL
-```
-
-The platform uses n8n Queue Mode, Redis as the asynchronous execution queue, PostgreSQL as the shared database and two independent Worker replicas.
-
-The current implementation is intentionally simple and suitable for the challenge. Before production use for approximately 300 users, the platform should be enhanced with:
-
-- Highly available PostgreSQL
-- Highly available Redis
-- Multiple n8n Main replicas
-- Enterprise SSO and MFA
-- Stronger team isolation
-- Centralized secret management
-- Monitoring and alerting
-- Backup and disaster recovery
-- GitOps-based CI/CD
-- Network policies and rate limiting
-- Capacity planning and autoscaling
-```
-
+A production-grade design should make the n8n main service, Redis, PostgreSQL, storage, ingress, and monitoring components highly available.
