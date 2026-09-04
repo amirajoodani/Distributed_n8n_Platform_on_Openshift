@@ -487,6 +487,8 @@ we used HPA to Scale worker pods based on cpu and Memory .also we can use other 
 
 we test it in step 6 .<br>
 
+---
+
 ### 13 Known limitations
 
 ### Limitations of This Architecture
