@@ -473,11 +473,13 @@ The total processing capacity in this example is approximately:
 ```
 
 Workers do not require a public route or external service because they communicate internally with Redis and PostgreSQL.
+
 ---
 
 ## 11. How to scale Workers
 
 we used HPA to Scale worker pods based on cpu and Memory .also we can use other parameters to scale workers like number of queue . 
+
 ---
 
 
