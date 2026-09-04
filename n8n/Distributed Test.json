@@ -1,0 +1,77 @@
+{
+  "name": "Distributed Test",
+  "nodes": [
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5242e923-3892-44c6-b8ec-e5df14345838",
+              "name": "",
+              "value": "Name: request_id Value: worker-test-001",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        176,
+        -96
+      ],
+      "id": "08aee28c-26a6-471b-ae48-f05a0c3a45a4",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "distributed-test",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -208,
+        -96
+      ],
+      "id": "a9ce2424-5209-4045-af7d-713cc179d660",
+      "name": "Webhook",
+      "webhookId": "a3e72908-d1d5-4c22-bdb8-f0543a279f35"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "7b123ba4-b66c-455c-83dc-e5e67c8a566f",
+  "meta": {
+    "instanceId": "c8fe43e289077749ad1ad26f826b1a200961c767fe13d3d67588176fa614ec18"
+  },
+  "nodeGroups": [],
+  "id": "0X9PkVrL2nul5VJz",
+  "tags": []
+}
