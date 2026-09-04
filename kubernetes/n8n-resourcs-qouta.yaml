@@ -1,0 +1,12 @@
+kind: ResourceQuota
+apiVersion: v1
+metadata:
+  name: n8n-rq
+  namespace: n8n
+spec:
+  hard:
+    limits.cpu: '6'
+    limits.memory: 8Gi
+    pods: '10'
+    requests.cpu: '3'
+    requests.memory: 4Gi

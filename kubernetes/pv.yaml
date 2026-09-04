@@ -1,0 +1,14 @@
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: n8n-postgres-pv
+spec:
+  capacity:
+    storage: 5Gi
+  nfs:
+    server: 172.24.3.10
+    path: /srv/nfs/n8n
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  volumeMode: Filesystem

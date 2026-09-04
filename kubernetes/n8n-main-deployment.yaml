@@ -1,0 +1,128 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: n8n-main
+  namespace: n8n
+  labels:
+    app: n8n-main
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: n8n-main
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: n8n-main
+    spec:
+      containers:
+        - resources:
+            limits:
+              cpu: '1'
+              memory: 1Gi
+            requests:
+              cpu: 200m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /healthz/readiness
+              port: 5678
+              scheme: HTTP
+            initialDelaySeconds: 30
+            timeoutSeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 6
+          terminationMessagePath: /dev/termination-log
+          name: n8n-main
+          command:
+            - n8n
+          livenessProbe:
+            httpGet:
+              path: /healthz/liveness
+              port: 5678
+              scheme: HTTP
+            initialDelaySeconds: 60
+            timeoutSeconds: 5
+            periodSeconds: 20
+            successThreshold: 1
+            failureThreshold: 5
+          env:
+            - name: DB_TYPE
+              value: postgresdb
+            - name: DB_POSTGRESDB_HOST
+              value: postgres
+            - name: DB_POSTGRESDB_PORT
+              value: '5432'
+            - name: DB_POSTGRESDB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-app-secret
+                  key: DB_POSTGRESDB_USER
+            - name: DB_POSTGRESDB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-app-secret
+                  key: DB_POSTGRESDB_PASSWORD
+            - name: DB_POSTGRESDB_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-app-secret
+                  key: DB_POSTGRESDB_DATABASE
+            - name: EXECUTIONS_MODE
+              value: queue
+            - name: QUEUE_BULL_REDIS_HOST
+              value: redis
+            - name: QUEUE_BULL_REDIS_PORT
+              value: '6379'
+            - name: QUEUE_BULL_REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-app-secret
+                  key: QUEUE_BULL_REDIS_PASSWORD
+            - name: QUEUE_BULL_REDIS_DB
+              value: '0'
+            - name: N8N_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: n8n-app-secret
+                  key: N8N_ENCRYPTION_KEY
+            - name: N8N_HOST
+              value: n8n-n8n.apps.ocp.nextsysadmin.local
+            - name: N8N_PORT
+              value: '5678'
+            - name: N8N_PROTOCOL
+              value: http
+            - name: N8N_PROXY_HOPS
+              value: '1'
+            - name: WEBHOOK_URL
+              value: 'https://n8n-n8n.apps.ocp.nextsysadmin.local/'
+            - name: N8N_EDITOR_BASE_URL
+              value: 'https://n8n-n8n.apps.ocp.nextsysadmin.local/'
+            - name: N8N_RUNNERS_ENABLED
+              value: 'true'
+            - name: N8N_LOG_LEVEL
+              value: info
+          ports:
+            - name: http
+              containerPort: 5678
+              protocol: TCP
+          imagePullPolicy: IfNotPresent
+          terminationMessagePolicy: File
+          image: 'quay.nextsysadmin.local:8443/app/n8n:v3-nightly'
+          args:
+            - start
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
+      securityContext: {}
+      schedulerName: default-scheduler
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600
+
